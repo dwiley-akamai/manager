@@ -1,30 +1,5 @@
-import {
-  selectTimeRange,
-  selectServiceName,
-  selectAndVerifyResource,
-  assertSelections,
-} from 'support/util/cloudpulse';
-import {
-  mockAppendFeatureFlags,
-  mockGetFeatureFlagClientstream,
-} from 'support/intercepts/feature-flags';
-import {
-  mockCloudPulseJWSToken,
-  mockCloudPulseDashboardServicesResponse,
-  mockCloudPulseCreateMetrics,
-  mockCloudPulseGetDashboards,
-  mockCloudPulseGetMetricDefinitions,
-  mockCloudPulseServices,
-} from 'support/intercepts/cloudpulseAPIHandler';
-import { ui } from 'support/ui';
-import {
-  timeRange,
-  widgetDetails,
-  granularity,
-} from 'support/constants/widgets';
-import { makeFeatureFlagData } from 'support/util/feature-flags';
+import { CloudPulseMetricsResponse } from '@linode/api-v4';
 import { createMetricResponse } from '@src/factories/widget';
-import type { Flags } from 'src/featureFlags';
 import {
   accountFactory,
   extendedDashboardFactory,
@@ -33,14 +8,41 @@ import {
   metricDefinitionsFactory,
   regionFactory,
 } from 'src/factories';
+import { transformData } from 'src/features/CloudPulse/Utils/unitConversion';
+import { getMetrics } from 'src/utilities/statMetrics';
+import {
+  granularity,
+  timeRange,
+  widgetDetails,
+} from 'support/constants/widgets';
 import { mockGetAccount } from 'support/intercepts/account';
+import {
+  mockCloudPulseCreateMetrics,
+  mockCloudPulseDashboardServicesResponse,
+  mockCloudPulseGetDashboards,
+  mockCloudPulseGetMetricDefinitions,
+  mockCloudPulseJWSToken,
+  mockCloudPulseServices,
+} from 'support/intercepts/cloudpulseAPIHandler';
+import {
+  mockAppendFeatureFlags,
+  mockGetFeatureFlagClientstream,
+} from 'support/intercepts/feature-flags';
 import { mockGetLinodes } from 'support/intercepts/linodes';
 import { mockGetUserPreferences } from 'support/intercepts/profile';
 import { mockGetRegions } from 'support/intercepts/regions';
+import { ui } from 'support/ui';
+import {
+  assertSelections,
+  selectAndVerifyResource,
+  selectServiceName,
+  selectTimeRange,
+} from 'support/util/cloudpulse';
+import { makeFeatureFlagData } from 'support/util/feature-flags';
 import { extendRegion } from 'support/util/regions';
-import { CloudPulseMetricsResponse } from '@linode/api-v4';
-import { transformData } from 'src/features/CloudPulse/Utils/unitConversion';
-import { getMetrics } from 'src/utilities/statMetrics';
+
+import type { Flags } from 'src/featureFlags';
+
 /**
  * This test ensures that widget titles are displayed correctly on the dashboard.
  * This test suite is dedicated to verifying the functionality and display of widgets on the Cloudpulse dashboard.
@@ -58,16 +60,20 @@ const y_labels = [
   'system_network_io_bytes_total',
   'system_disk_operations_total',
 ];
+
 const widgets = widgetDetails.linode;
 const metrics = widgets.metrics;
+
 export const dashboardName = widgets.dashboardName;
 export const region = widgets.region;
 export const actualRelativeTimeDuration = timeRange.Last24Hours;
 export const resource = widgets.resource;
+
 const widgetLabels: string[] = metrics.map((widget) => widget.title);
 const metricsLabels: string[] = metrics.map((widget) => widget.name);
 const service_type = widgets.service_type;
 const dashboardId = widgets.id;
+
 const dashboard = extendedDashboardFactory(
   dashboardName,
   widgetLabels,
@@ -75,16 +81,21 @@ const dashboard = extendedDashboardFactory(
   y_labels,
   service_type
 ).build();
+
 const metricDefinitions = metricDefinitionsFactory(
   widgetLabels,
   metricsLabels
 ).build();
+
 const mockKubeLinode = kubeLinodeFactory.build();
+
 const mockLinode = linodeFactory.build({
   label: resource,
   id: mockKubeLinode.instance_id ?? undefined,
 });
+
 const mockAccount = accountFactory.build();
+
 const mockRegion = extendRegion(
   regionFactory.build({
     capabilities: ['Linodes'],
@@ -94,14 +105,17 @@ const mockRegion = extendRegion(
   })
 );
 let responsePayload: CloudPulseMetricsResponse;
+
 describe('Dashboard Widget Verification Tests', () => {
   beforeEach(() => {
     mockAppendFeatureFlags({
       aclp: makeFeatureFlagData<Flags['aclp']>({ beta: true, enabled: true }),
     }).as('getFeatureFlags');
+
     mockGetAccount(mockAccount).as('getAccount'); // Enables the account to have capability for Akamai Cloud Pulse
     mockGetFeatureFlagClientstream().as('getClientStream');
     mockGetLinodes([mockLinode]).as('getLinodes');
+
     mockCloudPulseGetMetricDefinitions(metricDefinitions, service_type);
     mockCloudPulseGetDashboards(dashboard, service_type).as('dashboard');
     mockCloudPulseServices(service_type).as('services');
@@ -192,7 +206,7 @@ describe('Dashboard Widget Verification Tests', () => {
   it('should set available aggregation of all the widgets', () => {
     setupMethod();
     metrics.forEach((testData) => {
-      cy.wait(7000); //maintaining the wait since page flicker and rendering
+      cy.wait(7000); // maintaining the wait since page flicker and rendering
       const widgetSelector = `[data-qa-widget="${testData.title}"]`;
       cy.get(widgetSelector)
         .first()
@@ -292,6 +306,7 @@ describe('Dashboard Widget Verification Tests', () => {
         });
     });
   });
+
   it('should apply global refresh button and verify network calls', () => {
     setupMethod();
 
@@ -461,18 +476,22 @@ const compareWidgetValues = (
     expectedValues.max,
     `Expected ${expectedValues.max} for max, but got ${actualValues.max}`
   );
+
   expect(actualValues.average).to.equal(
     expectedValues.average,
     `Expected ${expectedValues.average} for average, but got ${actualValues.average}`
   );
+
   expect(actualValues.last).to.equal(
     expectedValues.last,
     `Expected ${expectedValues.last} for last, but got ${actualValues.last}`
   );
+
   const extractedTitle = actualValues.title.substring(
     0,
     actualValues.title.indexOf(' ', actualValues.title.indexOf(' ') + 1)
   );
+
   expect(extractedTitle).to.equal(
     title,
     `Expected ${title} for title ${extractedTitle}`
